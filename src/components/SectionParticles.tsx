@@ -24,6 +24,7 @@ const SectionParticles = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animationRef = useRef<number>();
+  const lastTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -31,6 +32,15 @@ const SectionParticles = ({
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    // Détection de performance
+    const isLowPerformance = window.navigator.hardwareConcurrency <= 4 || 
+                           window.innerWidth < 768;
+
+    // Désactiver sur mobile pour économiser les ressources
+    if (window.innerWidth < 768) {
+      return;
+    }
 
     // Ajuster la taille du canvas
     const resizeCanvas = () => {
@@ -45,15 +55,17 @@ const SectionParticles = ({
     // Créer les particules
     const createParticles = () => {
       const particles: Particle[] = [];
+      // Réduire le nombre de particules sur les appareils moins puissants
+      const adjustedCount = isLowPerformance ? Math.floor(particleCount * 0.6) : particleCount;
 
-      for (let i = 0; i < particleCount; i++) {
+      for (let i = 0; i < adjustedCount; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.3,
-          vy: (Math.random() - 0.5) * 0.3,
-          size: Math.random() * 1.5 + 0.5,
-          opacity: Math.random() * 0.3 + 0.1,
+          vx: (Math.random() - 0.5) * 0.2, // Vitesse réduite
+          vy: (Math.random() - 0.5) * 0.2,
+          size: Math.random() * 1.2 + 0.3, // Taille réduite
+          opacity: Math.random() * 0.2 + 0.05, // Opacité réduite
           color: colors[Math.floor(Math.random() * colors.length)]
         });
       }
@@ -62,8 +74,15 @@ const SectionParticles = ({
 
     particlesRef.current = createParticles();
 
-    // Animation des particules
-    const animate = () => {
+    // Animation des particules avec throttling
+    const animate = (currentTime: number) => {
+      // Limiter à 30 FPS sur les appareils moins puissants
+      if (isLowPerformance && currentTime - lastTimeRef.current < 33) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      lastTimeRef.current = currentTime;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       particlesRef.current.forEach((particle) => {
@@ -95,7 +114,7 @@ const SectionParticles = ({
       animationRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
+    animate(0);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
@@ -104,6 +123,11 @@ const SectionParticles = ({
       }
     };
   }, [particleCount, colors]);
+
+  // Ne pas rendre sur mobile
+  if (window.innerWidth < 768) {
+    return null;
+  }
 
   return (
     <canvas

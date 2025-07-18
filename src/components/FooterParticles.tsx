@@ -14,6 +14,7 @@ const FooterParticles = (): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animationRef = useRef<number>();
+  const lastTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -21,6 +22,15 @@ const FooterParticles = (): JSX.Element => {
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    // Détection de performance
+    const isLowPerformance = window.navigator.hardwareConcurrency <= 4 || 
+                           window.innerWidth < 768;
+
+    // Désactiver complètement sur mobile pour économiser les ressources
+    if (window.innerWidth < 768) {
+      return;
+    }
 
     // Ajuster la taille du canvas
     const resizeCanvas = () => {
@@ -35,17 +45,17 @@ const FooterParticles = (): JSX.Element => {
     // Créer les particules
     const createParticles = () => {
       const particles: Particle[] = [];
-      const particleCount = 15; // Moins de particules pour le footer
+      const particleCount = isLowPerformance ? 8 : 12; // Réduire le nombre
 
       for (let i = 0; i < particleCount; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.2, // Mouvement plus lent
-          vy: (Math.random() - 0.5) * 0.2,
-          size: Math.random() * 1 + 0.3, // Plus petites
-          opacity: Math.random() * 0.2 + 0.05, // Plus subtiles
-          color: 'rgba(255, 255, 255, 0.03)' // Très subtiles
+          vx: (Math.random() - 0.5) * 0.1, // Mouvement très lent
+          vy: (Math.random() - 0.5) * 0.1,
+          size: Math.random() * 0.8 + 0.2, // Plus petites
+          opacity: Math.random() * 0.1 + 0.02, // Très subtiles
+          color: 'rgba(255, 255, 255, 0.02)' // Très subtiles
         });
       }
       return particles;
@@ -53,8 +63,15 @@ const FooterParticles = (): JSX.Element => {
 
     particlesRef.current = createParticles();
 
-    // Animation des particules
-    const animate = () => {
+    // Animation des particules avec throttling
+    const animate = (currentTime: number) => {
+      // Limiter à 30 FPS sur les appareils moins puissants
+      if (isLowPerformance && currentTime - lastTimeRef.current < 33) {
+        animationRef.current = requestAnimationFrame(animate);
+        return;
+      }
+      lastTimeRef.current = currentTime;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       particlesRef.current.forEach((particle) => {
@@ -86,7 +103,7 @@ const FooterParticles = (): JSX.Element => {
       animationRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
+    animate(0);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
@@ -95,6 +112,11 @@ const FooterParticles = (): JSX.Element => {
       }
     };
   }, []);
+
+  // Ne pas rendre sur mobile
+  if (window.innerWidth < 768) {
+    return null;
+  }
 
   return (
     <canvas
